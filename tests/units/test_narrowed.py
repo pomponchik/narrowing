@@ -13,3 +13,4 @@ def test_isinstance_narrowed_int():
 def test_issubclass_narrowed_int():
     assert issubclass(Narrowed[int, lambda x: x > 0], int)
     assert not issubclass(Narrowed[int, lambda x: x > 0], str)
+    assert not issubclass(int, Narrowed[int, lambda x: x > 0])
