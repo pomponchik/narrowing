@@ -1,3 +1,4 @@
+import inspect
 import re
 from typing import Any, List, Optional
 
@@ -497,6 +498,21 @@ def test_non_subclassable_base_uses_metaclass_fallback():
     assert isinstance(True, narrowed_class)
     assert not isinstance(False, narrowed_class)
     assert bool not in narrowed_class.__mro__
+
+
+def test_inspect_isclass_recognizes_call_form():
+    """Narrowed-via-call returns a real class (instance of `type` via NarrowedMeta)."""
+    assert inspect.isclass(Narrowed(int, lambda x: x > 0))
+
+
+def test_inspect_isclass_recognizes_subscript_form():
+    """Narrowed-via-subscript returns a real class as well."""
+    assert inspect.isclass(Narrowed[int, 'x > 0'])
+
+
+def test_inspect_isclass_recognizes_non_subclassable_base():
+    """Even when the base isn't subclassable and bases=(), the result is still a class."""
+    assert inspect.isclass(Narrowed(bool, lambda x: x is True))
 
 
 def test_subclassable_cache_survives_garbage_collected_class_with_same_qualname():
