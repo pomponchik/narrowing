@@ -515,6 +515,26 @@ def test_inspect_isclass_recognizes_non_subclassable_base():
     assert inspect.isclass(Narrowed(bool, lambda x: x is True))
 
 
+def test_inline_isinstance_with_call_form():
+    """`Narrowed(...)` may be used directly as the second argument of `isinstance`."""
+    assert isinstance(5, Narrowed(int, lambda x: x > 0))
+    assert not isinstance(-1, Narrowed(int, lambda x: x > 0))
+    assert not isinstance('5', Narrowed(int, lambda x: x > 0))
+
+
+def test_inline_isinstance_with_subscript_form():
+    """`Narrowed[T, "expr"]` may be used directly as the second argument of `isinstance`."""
+    assert isinstance(5, Narrowed[int, 'x > 0'])
+    assert not isinstance(-1, Narrowed[int, 'x > 0'])
+    assert not isinstance('5', Narrowed[int, 'x > 0'])
+
+
+def test_inline_isinstance_with_subscript_lambda_still_rejected():
+    """Subscript+lambda is rejected at construction time even when used inline in `isinstance`."""
+    with pytest.raises(TypeError, match='lambda predicate is only valid in call form'):
+        isinstance(5, Narrowed[int, lambda x: x > 0])
+
+
 def test_subclassable_cache_survives_garbage_collected_class_with_same_qualname():
     """
     The cache keys on module + qualname rather than `id(...)`. If we cached
