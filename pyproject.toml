@@ -11,7 +11,12 @@ authors = [
 description = 'Narrowing down types for Python'
 readme = 'README.md'
 requires-python = '>=3.8'
-dependencies = []
+dependencies = [
+    'simtypes>=0.0.13,<0.1',
+    'getsources>=0.0.4,<0.1',
+    'printo>=0.0.27,<0.1',
+    'denial>=0.0.14,<0.1',
+]
 classifiers = [
     'Operating System :: OS Independent',
     'Operating System :: MacOS :: MacOS X',
@@ -39,6 +44,9 @@ keywords = [
     'narrowing types',
 ]
 
+[tool.mypy]
+plugins = ['narrowing.plugin']
+
 [tool.mutmut]
 paths_to_mutate=['narrowing']
 
@@ -60,6 +68,24 @@ testpaths = ['tests/documentation', 'tests/typing', 'tests/units']
 lint.ignore = ['E501', 'E712', 'PTH123', 'PTH118', 'PLR2004', 'PTH107', 'SIM105', 'SIM102', 'RET503', 'PLR0912', 'C901', 'E731', 'F821']
 lint.select = ['ERA001', 'YTT', 'ASYNC', 'BLE', 'B', 'A', 'COM', 'INP', 'PIE', 'T20', 'PT', 'RSE', 'RET', 'SIM', 'SLOT', 'TID252', 'ARG', 'PTH', 'I', 'C90', 'N', 'E', 'W', 'D201', 'D202', 'D419', 'F', 'PL', 'PLE', 'PLR', 'PLW', 'RUF', 'TRY201', 'TRY400', 'TRY401']
 format.quote-style = 'single'
+
+[tool.ruff.lint.per-file-ignores]
+# Tests routinely create alias names (PositiveInt = Narrowed(...)), import
+# stdlib modules locally to scope their visibility, declare lambdas with
+# unused params for arity tests, and assign locals just to verify a type
+# annotation compiles. None of these are real defects.
+'tests/**/*.py' = [
+    'N806',     # PascalCase locals (`PositiveInt = ...`)
+    'PLC0415',  # local imports inside test functions (intentional scoping)
+    'F841',     # unused locals (the assignment itself is the test)
+    'F842',     # unused annotation (we test annotation acceptance)
+    'ARG005',   # unused lambda args (`lambda x, y: ...` arity tests)
+    'ARG002',   # unused method args in test fixtures
+    'RUF012',   # mutable class-default in fakes
+    'E741',     # 'l' as a single-letter local in `lambda l: len(l) > 0`
+    'F722',     # forward-annotation-syntax-error inside `Narrowed[T, '...']`
+    'RUF100',   # unused noqa — false positives when mypy disagrees per-version
+]
 
 [project.urls]
 'Source' = 'https://github.com/mutating/suby'
