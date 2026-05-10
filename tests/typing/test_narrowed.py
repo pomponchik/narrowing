@@ -1,3 +1,5 @@
+import re  # noqa: F401  # used by `test_inline_isinstance_subscript_form_predicate_with_stdlib`
+
 import pytest
 
 from narrowing import Narrowed
@@ -131,3 +133,235 @@ def test_b_form_module_level_alias_resolution():
     """Module-level aliases resolve via the symbol table directly."""
     _ModulePositive = Narrowed(int, lambda x: x > 0)
     x: _ModulePositive = 5
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_narrows_to_int():
+    """`isinstance(value, Narrowed(int, ...))` inline narrows to int in the if-block."""
+    value: object = 5
+    if isinstance(value, Narrowed(int, lambda x: x > 0)):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_narrows_to_str():
+    """Same with `str` base + `len(x) > 0` predicate."""
+    value: object = 'hello'
+    if isinstance(value, Narrowed(str, lambda x: len(x) > 0)):
+        reveal_type(value)  # R: builtins.str
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_else_branch_keeps_object():
+    """In the else-branch the value is not narrowed."""
+    value: object = 5
+    if isinstance(value, Narrowed(int, lambda x: x > 0)):
+        pass
+    else:
+        reveal_type(value)  # R: builtins.object
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_via_full_path_import():
+    """Same narrowing through the full-path import (`narrowing.narrowed.Narrowed`)."""
+    from narrowing.narrowed import Narrowed as NarrowedFull
+    value: object = 5
+    if isinstance(value, NarrowedFull(int, lambda x: x > 0)):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_with_any_base_falls_back():
+    """`Any` base — `_resolve_base_typeinfo` returns None, hook falls back. mypy emits the original arg-type error and value is not narrowed."""
+    from typing import Any, cast
+    base = cast(Any, int)
+    value: object = 5
+    if isinstance(value, Narrowed(base, lambda x: True)):  # type: ignore[arg-type, misc]  # E: Argument 2 to "isinstance" has incompatible type "Narrowed[Any]"; expected "_ClassInfo"  [arg-type]
+        reveal_type(value)  # R: builtins.object
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_with_optional_base_falls_back():
+    """`Optional[int]` is a Union — `_resolve_base_typeinfo` returns None, fallback path; original error stays."""
+    from typing import Optional, cast
+    base = cast(Optional[int], int)
+    value: object = 5
+    if isinstance(value, Narrowed(base, lambda x: True)):  # type: ignore[arg-type, misc]  # E: Argument 2 to "isinstance" has incompatible type "Narrowed[Never]"; expected "_ClassInfo"  [arg-type]
+        reveal_type(value)  # R: builtins.object
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_with_generic_base_uses_fill_typevars():
+    """Generic base `list` — `fill_typevars` produces `list[Any]` for proper narrowing."""
+    value: object = [1, 2, 3]
+    if isinstance(value, Narrowed(list, lambda items: len(items) > 0)):
+        reveal_type(value)  # R: builtins.list[Any]
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_does_not_break_alias_creation():
+    """Alias creation alongside inline-isinstance still works."""
+    Bounded = Narrowed(int, lambda x: x > 0)
+    bounded_value: Bounded = 5
+    reveal_type(bounded_value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_alias_then_inline_isinstance_via_alias():
+    """Alias → isinstance(value, alias) still narrows correctly."""
+    AliasIntPositive = Narrowed(int, lambda x: x > 0)
+    value: object = 5
+    if isinstance(value, AliasIntPositive):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_alias_inside_function_scope_then_inline_isinstance():
+    """Alias defined in function scope works with inline isinstance check."""
+    def use_narrowing() -> None:
+        InnerScopePositive = Narrowed(int, lambda x: x > 0)
+        value: object = 5
+        if isinstance(value, InnerScopePositive):
+            reveal_type(value)  # R: builtins.int
+    use_narrowing()
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_regular_class_still_works():
+    """Plain `isinstance(value, int)` continues to narrow normally."""
+    value: object = 5
+    if isinstance(value, int):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_tuple_classinfo_still_works():
+    """`isinstance(value, (int, str))` (tuple second arg) keeps standard semantics."""
+    value: object = 5
+    if isinstance(value, (int, str)):
+        reveal_type(value)  # R: Union[builtins.int, builtins.str]
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_narrows_to_int():
+    """`isinstance(value, Narrowed[int, 'x > 0'])` inline narrows to int."""
+    value: object = 5
+    if isinstance(value, Narrowed[int, 'x > 0']):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_via_full_path_import():
+    """Same with the full-path import."""
+    from narrowing.narrowed import Narrowed as NarrowedFull
+    value: object = 5
+    if isinstance(value, NarrowedFull[int, 'x > 0']):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_narrows_to_str():
+    value: object = 'hello'
+    if isinstance(value, Narrowed[str, 'len(x) > 0']):
+        reveal_type(value)  # R: builtins.str
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_else_branch_keeps_object():
+    value: object = 5
+    if isinstance(value, Narrowed[int, 'x > 0']):
+        pass
+    else:
+        reveal_type(value)  # R: builtins.object
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_literal_pass():
+    """Literal that satisfies the predicate produces no error."""
+    if isinstance(5, Narrowed(int, lambda x: x > 0)):
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_literal_fail():
+    """Literal that violates the predicate triggers a mypy error."""
+    if isinstance(-5, Narrowed(int, lambda x: x > 0)):  # E: narrowing: predicate rejected literal -5
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_literal_fail():
+    """Same literal-validation works for the subscript form."""
+    if isinstance(-5, Narrowed[int, 'x > 0']):  # E: narrowing: predicate rejected literal -5
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_literal_pass():
+    """Literal that satisfies the subscript predicate produces no error."""
+    if isinstance(5, Narrowed[int, 'x > 0']):
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_predicate_with_stdlib():
+    """Subscript predicate referencing imported stdlib module — narrowing works, no error."""
+    value: object = 'hello'
+    if isinstance(value, Narrowed[str, "re.match(r'.', x) is not None"]):
+        reveal_type(value)  # R: builtins.str
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_call_form_predicate_raises_silent():
+    """Predicate that raises against the literal — no static error (silent skip in isinstance_hook)."""
+    bomb_class = Narrowed(int, lambda x: 1 / x > 0)
+    with pytest.raises(ZeroDivisionError):
+        isinstance(0, bomb_class)
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_invalid_arity_still_errors():
+    """`Narrowed[int]` (one parameter) keeps the existing plugin diagnostic in isinstance position."""
+    def _annotation_only(x: 'Narrowed[int]') -> None: ...  # E: narrowing: expected Narrowed[T, "expr"], got 1 parameter(s)  [misc]
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_tuple_with_narrowed_inside():
+    """`isinstance(value, (Narrowed(int, ...), str))` — at least the regular `str` element narrows; Narrowed-element should not break."""
+    value: object = 'hello'
+    if isinstance(value, (Narrowed(int, lambda x: x > 0), str)):
+        reveal_type(value)  # R: Union[builtins.int, builtins.str]
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_combined_with_and():
+    """Composition: chained `isinstance` with two `Narrowed` clauses — both narrow to int."""
+    value: object = 5
+    if isinstance(value, Narrowed(int, lambda x: x > 0)) and isinstance(value, Narrowed(int, lambda x: x < 100)):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_negation_in_else():
+    """`if not isinstance(...)` keeps else-branch type unchanged (no spurious narrowing)."""
+    value: object = 5
+    if not isinstance(value, Narrowed(int, lambda x: x > 0)):
+        reveal_type(value)  # R: builtins.object
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_with_walrus():
+    """Walrus inside isinstance — assigned variable narrows in if-block."""
+    def make_value() -> object:
+        return 5
+    if isinstance(value := make_value(), Narrowed[int, 'x > 0']):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_issubclass_inline_call_form():
+    """`issubclass(SomeCls, Narrowed(int, ...))` — analogous to isinstance."""
+    class MyInt(int):
+        pass
+    if issubclass(MyInt, Narrowed(int, lambda x: x > 0)):
+        pass

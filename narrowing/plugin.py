@@ -26,6 +26,7 @@ from mypy.nodes import (
 from mypy.plugin import (
     AnalyzeTypeContext,
     DynamicClassDefContext,
+    FunctionContext,
     Plugin,
 )
 from mypy.types import (
@@ -34,8 +35,10 @@ from mypy.types import (
     RawExpressionType,
     Type,
     TypeOfAny,
+    TypeType,
     UnboundType,
 )
+from mypy.typevars import fill_typevars_with_any
 
 from narrowing.lambda_check import check_predicate_ast
 
@@ -261,7 +264,41 @@ def subscript_form_type_analyze_hook(context: AnalyzeTypeContext) -> Type:
     return base_resolved
 
 
+def narrowed_call_function_hook(context: FunctionContext) -> Type:
+    """
+    Make `Narrowed(int, lambda x: ...)` usable as the second argument of
+    `isinstance`/`issubclass` by returning `Type[base]` instead of `Narrowed[base]`.
+
+    Without this hook the call expression has type `Narrowed[base]`, which
+    `isinstance` rejects (`expected "_ClassInfo"`). Returning `TypeType(base)`
+    matches the shape `mypy.checker.get_isinstance_type` accepts and lets
+    flow-narrowing kick in.
+
+    For generic bases (`list`, `dict`, etc.) `fill_typevars` produces an
+    `Instance` with `Any`-filled parameters; otherwise mypy reveals a bare
+    `list` instead of `list[Any]` in the narrowed branch.
+
+    Falls back to `default_return_type` when the base argument can't be
+    resolved to a `TypeInfo` (Any / Optional / Union / unknown name).
+    """
+    if not context.args or not context.args[0]:
+        return context.default_return_type
+    base_argument = context.args[0][0]
+    base_typeinfo = _resolve_base_typeinfo(base_argument)
+    if base_typeinfo is None:
+        return context.default_return_type
+    if base_typeinfo.type_vars:
+        filled = fill_typevars_with_any(base_typeinfo)
+        # `fill_typevars_with_any` returns Instance | TupleType per stub; for
+        # our use only Instance is valid as the inner type of TypeType.
+        if isinstance(filled, Instance):
+            return TypeType(filled)
+        return context.default_return_type
+    return TypeType(Instance(base_typeinfo, []))
+
+
 from narrowing import assignment_hook as _assignment_hook  # noqa: E402, F401, I001  # late import to break the circular dependency; importing applies the runtime patch
+from narrowing import isinstance_hook as _isinstance_hook  # noqa: E402, F401  # late import; importing applies the inline-isinstance patch
 
 
 class NarrowingPlugin(Plugin):
@@ -281,6 +318,14 @@ class NarrowingPlugin(Plugin):
     ) -> Optional[Callable[[AnalyzeTypeContext], Type]]:
         if fullname in (NARROWED_FULLNAME, NARROWED_REEXPORT):
             return subscript_form_type_analyze_hook
+        return None
+
+    def get_function_hook(
+        self,
+        fullname: str,
+    ) -> Optional[Callable[[FunctionContext], Type]]:
+        if fullname in (NARROWED_FULLNAME, NARROWED_REEXPORT):
+            return narrowed_call_function_hook
         return None
 
 
