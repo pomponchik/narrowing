@@ -518,18 +518,25 @@ def test_inspect_isclass_recognizes_non_subclassable_base():
 def test_inline_isinstance_with_call_form():
     """`Narrowed(...)` may be used directly as the second argument of `isinstance`."""
     assert isinstance(5, Narrowed(int, lambda x: x > 0))
-    assert not isinstance(-1, Narrowed(int, lambda x: x > 0))
+    # On pure-Python mypy our `isinstance_hook` emits "predicate rejected literal -1"
+    # because the patch fires; on mypyc-compiled mypy the patch is bypassed and no
+    # error is emitted. The runtime assertion is what matters for this test.
+    assert not isinstance(-1, Narrowed(int, lambda x: x > 0))  # type: ignore[misc]
     assert not isinstance('5', Narrowed(int, lambda x: x > 0))
 
 
 def test_inline_isinstance_with_subscript_form():
     """`Narrowed[T, "expr"]` may be used directly as the second argument of `isinstance`."""
-    assert isinstance(5, Narrowed[int, 'x > 0'])
-    assert not isinstance(-1, Narrowed[int, 'x > 0'])
-    assert not isinstance('5', Narrowed[int, 'x > 0'])
+    # On mypyc-compiled mypy (default PyPI wheel) our `isinstance_hook` patch is
+    # bypassed by direct C call sites; mypy then emits its native "Parameterized
+    # generics cannot be used with class or instance checks". The runtime behaviour
+    # is fully tested here, so silence the static-only error.
+    assert isinstance(5, Narrowed[int, 'x > 0'])  # type: ignore[misc]
+    assert not isinstance(-1, Narrowed[int, 'x > 0'])  # type: ignore[misc]
+    assert not isinstance('5', Narrowed[int, 'x > 0'])  # type: ignore[misc]
 
 
 def test_inline_isinstance_with_subscript_lambda_still_rejected():
     """Subscript+lambda is rejected at construction time even when used inline in `isinstance`."""
     with pytest.raises(TypeError, match='lambda predicate is only valid in call form'):
-        isinstance(5, Narrowed[int, lambda x: x > 0])
+        isinstance(5, Narrowed[int, lambda x: x > 0])  # type: ignore[misc]
