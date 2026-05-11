@@ -33,6 +33,14 @@ jobs:
       shell: bash
       run: uv pip install --system -r requirements_dev.txt
 
+    - name: Reinstall mypy from source
+      # narrowing's `assignment_hook` and `isinstance_hook` apply Python-level
+      # monkey-patches on mypy internals. The mypyc-compiled wheel from PyPI
+      # bypasses these patches via direct C call sites; pure-Python mypy is
+      # required for inline `Narrowed[T, "expr"]` and literal-rejection to work.
+      shell: bash
+      run: uv pip install --system --reinstall --no-binary mypy mypy==1.14.1
+
     - name: Install the library
       shell: bash
       run: uv pip install --system .
