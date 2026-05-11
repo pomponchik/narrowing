@@ -12,6 +12,7 @@ predicates against literal rvalues at type-check time.
 """
 import ast
 from typing import Any, Callable, Dict, Optional
+from typing import Type as TypingType
 
 from mypy.nodes import (
     GDEF,
@@ -329,5 +330,5 @@ class NarrowingPlugin(Plugin):
         return None
 
 
-def plugin(version: str) -> 'type[Plugin]':  # noqa: ARG001
+def plugin(version: str) -> TypingType[Plugin]:  # noqa: ARG001
     return NarrowingPlugin
