@@ -83,7 +83,7 @@ class NarrowedMeta(type):
     def __instancecheck__(cls, instance: object) -> bool:
         # `simtypes.check` returns TypeIs[T] which mypy unwraps to bool.
         # `cls._narrowing_base` is typed `object`; simtypes accepts any type.
-        if not check(instance, cls._narrowing_base, strict=True):  # type: ignore[arg-type, misc]
+        if not check(instance, cls._narrowing_base, strict=True):  # type: ignore[arg-type, misc, unused-ignore]
             return False
         return bool(cls._narrowing_pred(instance))
 
@@ -103,7 +103,7 @@ def _build_narrowed_class(
     repr_source: str,
 ) -> Type[object]:
     def narrowed_new(_inner_class: type, value: object) -> object:
-        if not check(value, base, strict=True):  # type: ignore[arg-type, misc]
+        if not check(value, base, strict=True):  # type: ignore[arg-type, misc, unused-ignore]
             raise TypeError(
                 f'narrowing: expected {_format_base(base)}, got {type(value)!r}',
             )
