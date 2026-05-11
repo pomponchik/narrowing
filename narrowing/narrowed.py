@@ -33,33 +33,20 @@ from simtypes import check
 
 from narrowing.lambda_check import make_string_predicate, validate_lambda
 
-_subclassable_cache: Dict[str, bool] = {}
-
-
-def _subclassable_cache_key(type_object: type) -> str:
-    """
-    Return a stable identity key for `type_object` suitable for caching.
-
-    Uses module + qualname rather than `id(...)`, which is reused after
-    object collection and would produce stale cache hits.
-    """
-    return f'{type_object.__module__}.{type_object.__qualname__}'
-
 
 def _is_subclassable(type_object: type) -> bool:
-    key = _subclassable_cache_key(type_object)
-    cached = _subclassable_cache.get(key)
-    if cached is not None:
-        return cached
+    """
+    Return True if `type_object` can serve as a base for a dynamically created
+    subclass. Some CPython built-ins (`bool`, `range`, `slice`, ...) don't have
+    `Py_TPFLAGS_BASETYPE` set; subclassing them raises `TypeError`.
+    """
     try:
         # `type(name, bases, dict)` returns `type` per stub; we only care if
         # the call raises, so the typed-Any return value is fine to discard.
         type('_probe', (type_object,), {})  # type: ignore[misc]
-        result = True
     except TypeError:
-        result = False
-    _subclassable_cache[key] = result
-    return result
+        return False
+    return True
 
 
 def _format_base(base: object) -> str:

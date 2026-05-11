@@ -483,7 +483,7 @@ def test_string_predicate_using_imported_stdlib_module():
     assert not isinstance('', Email)
 
 
-def test_subclassable_cache_does_not_break_repeated_call_with_same_base():
+def test_repeated_narrowed_with_same_base_produces_real_subclasses():
     first = Narrowed(int, lambda x: x > 0)
     second = Narrowed(int, lambda x: x > 5)
 
@@ -533,27 +533,3 @@ def test_inline_isinstance_with_subscript_lambda_still_rejected():
     """Subscript+lambda is rejected at construction time even when used inline in `isinstance`."""
     with pytest.raises(TypeError, match='lambda predicate is only valid in call form'):
         isinstance(5, Narrowed[int, lambda x: x > 0])
-
-
-def test_subclassable_cache_survives_garbage_collected_class_with_same_qualname():
-    """
-    The cache keys on module + qualname rather than `id(...)`. If we cached
-    by id, allocating a fresh class with the same name in the same address
-    range as a collected one would produce a stale True/False reading.
-    """
-    import gc
-
-    def make_class():
-        class Local:
-            pass
-        return Local
-
-    first = Narrowed(make_class(), lambda x: True)
-    assert isinstance(first, type)
-
-    gc.collect()
-
-    second_base = make_class()
-    second = Narrowed(second_base, lambda x: True)
-    assert isinstance(second, type)
-    assert second_base in second.__mro__

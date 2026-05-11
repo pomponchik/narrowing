@@ -197,6 +197,34 @@ def test_extract_literal_value_for_negated_float():
     assert isinstance_hook._extract_literal_value(UnaryExpr('-', FloatExpr(2.5))) == -2.5
 
 
+def test_extract_literal_value_for_true():
+    from mypy.nodes import NameExpr
+    expression = NameExpr('True')
+    expression.fullname = 'builtins.True'
+    assert isinstance_hook._extract_literal_value(expression) is True
+
+
+def test_extract_literal_value_for_false():
+    from mypy.nodes import NameExpr
+    expression = NameExpr('False')
+    expression.fullname = 'builtins.False'
+    assert isinstance_hook._extract_literal_value(expression) is False
+
+
+def test_extract_literal_value_for_none():
+    from mypy.nodes import NameExpr
+    expression = NameExpr('None')
+    expression.fullname = 'builtins.None'
+    assert isinstance_hook._extract_literal_value(expression) is None
+
+
+def test_extract_literal_value_returns_unset_for_unrelated_nameexpr():
+    from mypy.nodes import NameExpr
+    expression = NameExpr('something_else')
+    expression.fullname = 'somewhere.something_else'
+    assert isinstance_hook._extract_literal_value(expression) is isinstance_hook._UNSET
+
+
 def test_extract_literal_value_returns_unset_for_non_literal():
     from mypy.nodes import NameExpr
     result = isinstance_hook._extract_literal_value(NameExpr('something'))
@@ -360,6 +388,48 @@ def test_load_module_ast_returns_none_for_empty_path():
     class _Tree:
         path = ''
     assert isinstance_hook._load_module_ast(_Tree()) is None
+
+
+def test_compile_lambda_from_source_returns_uncached_when_no_path():
+    """When `chk.tree.path` is unavailable, fall back to uncached compile (also returns None here)."""
+    from mypy.nodes import LambdaExpr
+
+    class _Tree:
+        path = None
+
+    class _Checker:
+        chk = _Tree()
+
+    predicate_argument = LambdaExpr()
+    predicate_argument.line = 1
+    predicate_argument.column = 0
+    result = isinstance_hook._compile_lambda_from_source(_Checker(), predicate_argument)  # type: ignore[arg-type]
+    assert result is None
+
+
+def test_compile_lambda_from_source_caches_subsequent_calls():
+    """Second call with same key hits the LRU cache and returns the same result."""
+    from mypy.nodes import LambdaExpr
+
+    class _Tree:
+        path = '/tmp/__definitely_not_a_real_python_module__.py'
+        source = None
+
+    class _CheckerInternal:
+        tree = _Tree()
+
+    class _Checker:
+        chk = _CheckerInternal()
+
+    predicate_argument = LambdaExpr()
+    predicate_argument.line = 1
+    predicate_argument.column = 0
+    first = isinstance_hook._compile_lambda_from_source(_Checker(), predicate_argument)  # type: ignore[arg-type]
+    second = isinstance_hook._compile_lambda_from_source(_Checker(), predicate_argument)  # type: ignore[arg-type]
+    assert first is None
+    assert second is None
+    # Cache entry was created for this position; ensure key is present.
+    assert ('/tmp/__definitely_not_a_real_python_module__.py', 1, 0) in isinstance_hook._predicate_cache
 
 
 def test_build_caller_globals_returns_empty_when_tree_has_no_names():

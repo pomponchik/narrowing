@@ -13,17 +13,40 @@ Two patches working together:
    the base `TypeInfo`. Mypy then treats the call as a regular
    `isinstance(value, int)`-like check, suppressing
    `"Parameterized generics cannot be used with class or instance checks"`
-   (`mypy/checkexpr.py:545`) and enabling flow narrowing.
+   (`mypy/checkexpr.py:545`) and enabling flow narrowing. Also emits
+   `narrowing: predicate rejected literal X` when the first argument is a
+   literal that the predicate rejects.
 
 The plugin's `get_function_hook` covers the call form
 `isinstance(value, Narrowed(int, ...))` separately and works on mypyc-compiled
 mypy; the two patches here are Python-level and bypassed by mypyc. We detect
 the compiled binary at load time and emit a one-time `UserWarning`.
+
+**Caches**: `_module_ast_cache` (parsed module ASTs) and `_predicate_cache`
+(compiled predicate callables) are LRU-bounded at `_MAX_CACHE_ENTRIES` to
+prevent unbounded growth in long-running mypy daemon sessions. The predicate
+cache key is `(module_path, lambda_line, lambda_column)` rather than
+`id(LambdaExpr)`: position-based keys are stable across module reloads, and
+GC-reused IDs cannot produce stale hits. Edits that shift line numbers cause
+benign cache misses (no wrong narrowing).
+
+**AST staleness**: when `tree.source` is unavailable in memory, `_load_module_ast`
+falls back to reading from disk. In daemon mode mid-edit the file may have
+changed since mypy's last semantic snapshot — the predicate is then evaluated
+against the newer source. This is not a correctness bug for the type-checker
+itself (mypy already uses its own snapshot), only for the literal-rejection
+diagnostic this module emits, which may briefly disagree with the on-screen
+source until the next mypy refresh.
+
+**Concurrency**: caches use plain `OrderedDict` without locking. Mypy daemon
+processes one type-check request at a time per process, so this is safe in
+practice; the caches are not designed for multi-threaded callers.
 """
 import ast
 import sys
 import warnings
-from typing import Callable, Dict, Optional
+from collections import OrderedDict
+from typing import Callable, Dict, Optional, Tuple, TypeVar
 
 import mypy.checkexpr as _mypy_checkexpr_module
 from mypy.checkexpr import ExpressionChecker
@@ -91,8 +114,11 @@ def _patched_visit_call_expr_inner(
     allow_none_return: bool = False,
 ) -> Type:
     try:
+        # Accept both `isinstance(...)` (callee = NameExpr) and the rarer
+        # `builtins.isinstance(...)` (callee = MemberExpr) — both are RefExpr
+        # subclasses with a resolved `.fullname`.
         if (
-            isinstance(expression.callee, NameExpr)
+            isinstance(expression.callee, RefExpr)
             and expression.callee.fullname in ('builtins.isinstance', 'builtins.issubclass')
             and len(expression.args) == 2
         ):
@@ -140,8 +166,22 @@ def _maybe_emit_literal_rejection(checker: ExpressionChecker, expression: CallEx
 _UNSET: object = object()
 
 
-def _extract_literal_value(argument: Expression) -> object:
-    """Return the Python literal value of `argument` or `_UNSET` if not a literal."""
+_BOOLEAN_AND_NONE_FULLNAMES: Dict[str, object] = {
+    'builtins.True': True,
+    'builtins.False': False,
+    'builtins.None': None,
+}
+
+
+def _extract_literal_value(argument: Expression) -> object:  # noqa: PLR0911
+    """
+    Return the Python literal value of `argument` or `_UNSET` if not a literal.
+
+    Recognises numeric/string/bytes literals, their unary negations, and the
+    name-bound singletons `True`/`False`/`None` (mypy represents these as
+    `NameExpr` with fullname `builtins.True` / `builtins.False` / `builtins.None`,
+    not as a dedicated `BoolExpr` node).
+    """
     if isinstance(argument, IntExpr):
         return argument.value
     if isinstance(argument, StrExpr):
@@ -154,6 +194,10 @@ def _extract_literal_value(argument: Expression) -> object:
             return -inner.value
         if isinstance(inner, FloatExpr):
             return -inner.value
+    if isinstance(argument, NameExpr):
+        fullname_attribute: object = getattr(argument, 'fullname', None)
+        if isinstance(fullname_attribute, str) and fullname_attribute in _BOOLEAN_AND_NONE_FULLNAMES:
+            return _BOOLEAN_AND_NONE_FULLNAMES[fullname_attribute]
     return _UNSET
 
 
@@ -254,8 +298,29 @@ def _build_caller_globals(checker: ExpressionChecker) -> Dict[str, object]:
     return result
 
 
-_module_ast_cache: Dict[str, Optional[ast.Module]] = {}
-_predicate_cache: Dict[int, Optional[Callable[[object], object]]] = {}
+_MAX_CACHE_ENTRIES = 1024
+
+_module_ast_cache: 'OrderedDict[str, Optional[ast.Module]]' = OrderedDict()
+# Cache key is `(module_path, lambda_line, lambda_column)` rather than
+# `id(LambdaExpr)`: in long-running daemon sessions, mypy reloads modules and
+# Python may reuse object IDs for new LambdaExpr nodes, producing stale hits.
+_predicate_cache: 'OrderedDict[Tuple[str, int, int], Optional[Callable[[object], object]]]' = OrderedDict()
+
+
+_KeyT = TypeVar('_KeyT')
+_ValueT = TypeVar('_ValueT')
+
+
+def _cache_set(
+    cache: 'OrderedDict[_KeyT, _ValueT]',
+    key: _KeyT,
+    value: _ValueT,
+) -> None:
+    """LRU-style insertion: evict oldest entry once size exceeds the cap."""
+    cache[key] = value
+    cache.move_to_end(key)
+    while len(cache) > _MAX_CACHE_ENTRIES:
+        cache.popitem(last=False)
 
 
 def _compile_lambda_from_source(
@@ -265,15 +330,27 @@ def _compile_lambda_from_source(
     """
     Re-parse the module source and compile the lambda body into a callable.
 
-    Caches per module path (`_module_ast_cache`) and per `LambdaExpr` identity
-    (`_predicate_cache`) to avoid re-reading and re-parsing on every isinstance
-    call mypy visits.
+    Caches per module path (`_module_ast_cache`) and per
+    `(module_path, line, column)` (`_predicate_cache`) to avoid re-reading and
+    re-parsing on every isinstance call mypy visits. Both caches are bounded
+    via LRU-style eviction (`_MAX_CACHE_ENTRIES`) to prevent unbounded growth
+    in long-running daemon sessions.
     """
-    cache_key = id(predicate_argument)
+    tree_object: object = getattr(checker, 'chk', None)
+    module_tree: object = getattr(tree_object, 'tree', None)
+    path_attribute: object = getattr(module_tree, 'path', None)
+    if not isinstance(path_attribute, str) or not path_attribute:
+        return _compile_lambda_uncached(checker, predicate_argument)
+    cache_key: Tuple[str, int, int] = (
+        path_attribute,
+        predicate_argument.line,
+        predicate_argument.column,
+    )
     if cache_key in _predicate_cache:
+        _predicate_cache.move_to_end(cache_key)
         return _predicate_cache[cache_key]
     result = _compile_lambda_uncached(checker, predicate_argument)
-    _predicate_cache[cache_key] = result
+    _cache_set(_predicate_cache, cache_key, result)
     return result
 
 
@@ -300,7 +377,13 @@ def _compile_lambda_uncached(
         return None
     argument_name = candidate.args.args[0].arg
     code = compile(ast.Expression(candidate.body), '<narrowing predicate>', 'eval')
+    # Reconstruct caller globals so call-form lambdas referencing stdlib
+    # (`re.match`, `os.path.join`, ...) resolve at literal-validation time.
+    # Without this `eval` would `NameError` and the literal-rejection error
+    # would be silently swallowed.
+    caller_globals = _build_caller_globals(checker)
     evaluation_globals: Dict[str, object] = {'__builtins__': __builtins__}
+    evaluation_globals.update(caller_globals)
 
     def predicate(value: object) -> object:
         return eval(code, evaluation_globals, {argument_name: value})  # type: ignore[misc]
@@ -309,11 +392,12 @@ def _compile_lambda_uncached(
 
 
 def _load_module_ast(module_tree: object) -> Optional[ast.Module]:
-    """Read + parse the module source once per path; cache the result."""
+    """Read + parse the module source once per path; cache the result (LRU-bounded)."""
     path_attribute: object = getattr(module_tree, 'path', None)
     if not isinstance(path_attribute, str) or not path_attribute:
         return None
     if path_attribute in _module_ast_cache:
+        _module_ast_cache.move_to_end(path_attribute)
         return _module_ast_cache[path_attribute]
     source_attribute: object = getattr(module_tree, 'source', None)
     source: Optional[str] = source_attribute if isinstance(source_attribute, str) else None
@@ -322,14 +406,14 @@ def _load_module_ast(module_tree: object) -> Optional[ast.Module]:
             with open(path_attribute) as file_handle:
                 source = file_handle.read()
         except OSError:
-            _module_ast_cache[path_attribute] = None
+            _cache_set(_module_ast_cache, path_attribute, None)
             return None
     try:
         parsed = ast.parse(source)
     except SyntaxError:
-        _module_ast_cache[path_attribute] = None
+        _cache_set(_module_ast_cache, path_attribute, None)
         return None
-    _module_ast_cache[path_attribute] = parsed
+    _cache_set(_module_ast_cache, path_attribute, parsed)
     return parsed
 
 

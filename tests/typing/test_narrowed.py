@@ -365,3 +365,61 @@ def test_issubclass_inline_call_form():
         pass
     if issubclass(MyInt, Narrowed(int, lambda x: x > 0)):
         pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_combined_with_or():
+    """`or` composition narrows to the union of both branches' narrowed types."""
+    value: object = 5
+    if isinstance(value, Narrowed(int, lambda x: x > 0)) or isinstance(value, Narrowed(str, lambda x: len(x) > 0)):  # noqa: SIM101
+        reveal_type(value)  # R: Union[builtins.int, builtins.str]
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_with_call_form_predicate_using_stdlib_literal_pass():
+    """Call-form lambda referencing stdlib `re` — literal-eval should resolve `re` and not crash."""
+    if isinstance('a', Narrowed(str, lambda x: re.match(r'.', x) is not None)):
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_with_call_form_predicate_using_stdlib_literal_fail():
+    """Call-form predicate referencing stdlib `re` rejects the literal — error fires."""
+    if isinstance('', Narrowed(str, lambda x: re.match(r'.', x) is not None)):  # E: narrowing: predicate rejected literal ''
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_non_literal_first_argument_no_rejection():
+    """First arg is a CallExpr (not literal) — literal-rejection must not fire even when predicate would reject."""
+    def make_negative() -> int:
+        return -5
+    if isinstance(make_negative(), Narrowed(int, lambda x: x > 0)):
+        pass
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_parenthesised_lambda_predicate():
+    """Lambda wrapped in parens parses identically — narrowing must still work."""
+    value: object = 5
+    if isinstance(value, Narrowed(int, (lambda x: x > 0))):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_via_builtins_module_attribute():
+    """`builtins.isinstance(...)` (callee = MemberExpr) should also be patched, not just the bare name."""
+    import builtins
+    value: object = 5
+    if builtins.isinstance(value, Narrowed(int, lambda x: x > 0)):
+        reveal_type(value)  # R: builtins.int
+
+
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_with_nested_narrowed_base_falls_back():
+    """`Narrowed[Narrowed[int, "x>0"], "x>5"]` — outer base is an IndexExpr (not a TypeInfo),
+    so substitution can't compute a base type and falls back to the original mypy error.
+    Documents the current behavior: nested Narrowed in subscript form is a known limitation."""
+    value: object = 10
+    if isinstance(value, Narrowed[Narrowed[int, 'x > 0'], 'x > 5']):  # type: ignore[arg-type]  # E: Argument 2 to "isinstance" has incompatible type "GenericAlias"; expected "_ClassInfo"  [arg-type]
+        reveal_type(value)  # R: builtins.object
