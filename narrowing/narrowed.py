@@ -123,7 +123,14 @@ def _build_narrowed_class(
         (base,) if (inspect.isclass(base) and _is_subclassable(base)) else ()  # type: ignore[misc]
     )
     name = f'Narrowed[{_format_base(base)}, {repr_source!r}]'
-    return NarrowedMeta(name, bases, namespace)
+    try:
+        return NarrowedMeta(name, bases, namespace)
+    except TypeError:
+        # Metaclass conflict (e.g., Python 3.14+ `typing.Any` has its own
+        # metaclass incompatible with NarrowedMeta). Fall back to bases=();
+        # `__instancecheck__` still routes through `simtypes.check` for the
+        # base, so behaviour is preserved.
+        return NarrowedMeta(name, (), namespace)
 
 
 def _normalize_call_args(
