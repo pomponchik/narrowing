@@ -1,8 +1,8 @@
 import sys
 
-if sys.version_info >= (3, 10):  # pragma: no branch
-    STDLIB_MODULE_NAMES = sys.stdlib_module_names
-else:  # pragma: no cover
+if sys.version_info >= (3, 10):
+    STDLIB_MODULE_NAMES = sys.stdlib_module_names  # pragma: no cover (<py310)
+else:  # pragma: no cover (>=py310)
     STDLIB_MODULE_NAMES = frozenset({
         '__future__',
         '_abc',
