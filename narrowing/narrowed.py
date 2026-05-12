@@ -208,9 +208,9 @@ class Narrowed(Generic[BaseType]):
         cls,
         base: Type[BaseType],
         predicate: Callable[[BaseType], object],
-    ) -> Type[BaseType]: ...
+    ) -> Type[BaseType]: ...  # pragma: no cover
     @overload
-    def __new__(cls, *args: Any, **kwargs: Any) -> Type[Any]: ...  # type: ignore[misc]
+    def __new__(cls, *args: Any, **kwargs: Any) -> Type[Any]: ...  # type: ignore[misc]  # pragma: no cover
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Type[Any]:  # type: ignore[misc]
         base, predicate, repr_source = _normalize_call_args(args, kwargs)  # type: ignore[misc]

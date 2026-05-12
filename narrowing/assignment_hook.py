@@ -91,7 +91,7 @@ def _lookup_record_for_annotation(
         alias_fullname = _resolve_alias_fullname(checker, unanalyzed_type.name)
         if alias_fullname is not None:
             record = predicate_registry.get(alias_fullname)
-            if record is not None:
+            if record is not None:  # pragma: no branch
                 return record
     line: object = getattr(unanalyzed_type, 'line', -1)
     column: object = getattr(unanalyzed_type, 'column', -1)

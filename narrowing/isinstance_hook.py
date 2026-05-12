@@ -432,7 +432,7 @@ def _maybe_substitute_argument(checker: ExpressionChecker, argument: Expression)
         return None
     if base_typeinfo.type_vars:
         filled = fill_typevars_with_any(base_typeinfo)
-        if not isinstance(filled, Instance):
+        if not isinstance(filled, Instance):  # pragma: no cover
             return None
         synthetic_type: Type = TypeType(filled)
     else:

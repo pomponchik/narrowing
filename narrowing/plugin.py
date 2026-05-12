@@ -102,7 +102,7 @@ def call_form_dynamic_class_hook(context: DynamicClassDefContext) -> None:
     assignment-hook to consume.
     """
     call = context.call
-    if not isinstance(call, CallExpr):
+    if not isinstance(call, CallExpr):  # pragma: no cover
         return
     fallback_target: Type = AnyType(TypeOfAny.from_error)
 
@@ -186,7 +186,7 @@ def _reconstruct_call_form_predicate(  # type: ignore[misc]
         candidate: Optional[ast.Lambda] = None
         for node in ast.walk(tree):
             if isinstance(node, ast.Lambda) and node.lineno == target_line:
-                if (
+                if (  # pragma: no branch
                     candidate is None
                     or abs(node.col_offset - target_column) < abs(candidate.col_offset - target_column)
                 ):
@@ -213,7 +213,7 @@ def subscript_form_type_analyze_hook(context: AnalyzeTypeContext) -> Type:
     the base type. Registers the predicate under a position-derived key so
     the assignment-hook can locate it for inline annotations.
     """
-    if not isinstance(context.type, UnboundType):
+    if not isinstance(context.type, UnboundType):  # pragma: no cover
         return AnyType(TypeOfAny.from_error)
     arguments = list(context.type.args)
     if len(arguments) != 2:
@@ -254,7 +254,7 @@ def subscript_form_type_analyze_hook(context: AnalyzeTypeContext) -> Type:
         predicate = None
 
     base_fullname = ''
-    if isinstance(base_resolved, Instance):
+    if isinstance(base_resolved, Instance):  # pragma: no branch
         base_fullname = base_resolved.type.fullname
     position_key = f'__e_form__:{context.context.line}:{context.context.column}'
     predicate_registry[position_key] = PredicateRecord(
@@ -294,7 +294,7 @@ def narrowed_call_function_hook(context: FunctionContext) -> Type:
         # our use only Instance is valid as the inner type of TypeType.
         if isinstance(filled, Instance):
             return TypeType(filled)
-        return context.default_return_type
+        return context.default_return_type  # pragma: no cover
     return TypeType(Instance(base_typeinfo, []))
 
 

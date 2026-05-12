@@ -330,6 +330,14 @@ def test_string_predicate_with_nested_lambda_varargs_and_kwargs():
     assert not isinstance(-5, narrowed_class)
 
 
+def test_string_predicate_with_nested_lambda_kwonlyargs():
+    """Nested lambda with keyword-only args (`*, kw`) extends the scope by `kw`."""
+    narrowed_class = Narrowed[int, '(lambda *, kw=2: kw)() == 2 and x > 0']
+
+    assert isinstance(5, narrowed_class)
+    assert not isinstance(-5, narrowed_class)
+
+
 def test_string_predicate_with_listcomp():
     NonNegative = Narrowed[list, 'all(item > 0 for item in x)']
 

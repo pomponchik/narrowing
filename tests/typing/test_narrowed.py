@@ -407,6 +407,14 @@ def test_inline_isinstance_parenthesised_lambda_predicate():
 
 
 @pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_with_generic_base_uses_fill_typevars():
+    """Generic base in subscript form: `Narrowed[list, "..."]` narrows to `list[Any]`."""
+    value: object = [1, 2, 3]
+    if isinstance(value, Narrowed[list, 'len(x) > 0']):
+        reveal_type(value)  # R: builtins.list[Any]
+
+
+@pytest.mark.mypy_testing
 def test_inline_isinstance_via_builtins_module_attribute():
     """`builtins.isinstance(...)` (callee = MemberExpr) should also be patched, not just the bare name."""
     import builtins
