@@ -78,7 +78,7 @@ class NarrowedMeta(type):
 
     # PEP 649 (Python 3.14+) evaluates class-body annotations lazily, so
     # coverage no longer marks these declaration lines as executed. They carry
-    # no runtime work — just type information for `__annotations__`.
+    # no runtime work - just type information for `__annotations__`.
     _narrowing_base: object  # pragma: no cover
     _narrowing_pred: Callable[[object], object]  # pragma: no cover
     _narrowing_repr_source: str  # pragma: no cover

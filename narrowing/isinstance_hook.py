@@ -3,12 +3,12 @@ Monkey-patches enabling inline `isinstance(value, Narrowed[T, 'expr'])`.
 
 Two patches working together:
 
-1. `SemanticAnalyzer.visit_index_expr` — for `Narrowed[T, 'expr']` we skip
+1. `SemanticAnalyzer.visit_index_expr` - for `Narrowed[T, 'expr']` we skip
    `analyze_type_application`, which would otherwise interpret the predicate
    string as a type and emit `"Invalid type comment or annotation"` from
    `mypy/typeanal.py:1340` during the semantic-analysis pass (long before any
    plugin hook fires).
-2. `ExpressionChecker.visit_call_expr_inner` — for `isinstance(value, Narrowed[T, 'expr'])`
+2. `ExpressionChecker.visit_call_expr_inner` - for `isinstance(value, Narrowed[T, 'expr'])`
    we substitute the second argument with a synthetic `NameExpr` pointing at
    the base `TypeInfo`. Mypy then treats the call as a regular
    `isinstance(value, int)`-like check, suppressing
@@ -32,7 +32,7 @@ benign cache misses (no wrong narrowing).
 
 **AST staleness**: when `tree.source` is unavailable in memory, `_load_module_ast`
 falls back to reading from disk. In daemon mode mid-edit the file may have
-changed since mypy's last semantic snapshot — the predicate is then evaluated
+changed since mypy's last semantic snapshot - the predicate is then evaluated
 against the newer source. This is not a correctness bug for the type-checker
 itself (mypy already uses its own snapshot), only for the literal-rejection
 diagnostic this module emits, which may briefly disagree with the on-screen
@@ -115,7 +115,7 @@ def _patched_visit_call_expr_inner(
 ) -> Type:
     try:
         # Accept both `isinstance(...)` (callee = NameExpr) and the rarer
-        # `builtins.isinstance(...)` (callee = MemberExpr) — both are RefExpr
+        # `builtins.isinstance(...)` (callee = MemberExpr) - both are RefExpr
         # subclasses with a resolved `.fullname`.
         if (
             isinstance(expression.callee, RefExpr)
@@ -133,7 +133,7 @@ def _patched_visit_call_expr_inner(
                 expression.args[1] = substituted
     except Exception as exception:  # noqa: BLE001
         warnings.warn(
-            f'narrowing: isinstance-hook substitution raised {type(exception).__name__}: {exception} — '
+            f'narrowing: isinstance-hook substitution raised {type(exception).__name__}: {exception} - '
             'inline narrowing for `Narrowed[T, "expr"]` may not work; check mypy compatibility',
             stacklevel=2,
         )
@@ -266,7 +266,7 @@ def _build_caller_globals(checker: ExpressionChecker) -> Dict[str, object]:
 
     Each `SymbolTableNode.node` is examined: stdlib modules and their
     attributes are resolved via `sys.modules`. Anything we can't resolve
-    cleanly is skipped — `make_string_predicate` falls back to silent reject
+    cleanly is skipped - `make_string_predicate` falls back to silent reject
     when a name doesn't resolve.
     """
     chk_object: object = getattr(checker, 'chk', None)
@@ -471,7 +471,7 @@ def _apply_patch() -> None:
     SemanticAnalyzer.visit_index_expr = _patched_visit_index_expr  # type: ignore[method-assign, assignment]
     if _is_compiled_mypy():  # pragma: no cover
         warnings.warn(
-            'narrowing: mypy is mypyc-compiled — inline isinstance for `Narrowed[T, "expr"]` '
+            'narrowing: mypy is mypyc-compiled - inline isinstance for `Narrowed[T, "expr"]` '
             'subscript form (and literal-validation in inline isinstance) is not supported '
             'because direct C call sites bypass the Python-level patch. Install pure-Python '
             'mypy with `pip install --no-binary mypy mypy` for full feature support.',

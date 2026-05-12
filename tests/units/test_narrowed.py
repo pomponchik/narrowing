@@ -218,7 +218,7 @@ def test_lambda_with_kwonly_args_rejected():
 
 
 def test_lambda_with_closure_capture_rejected():
-    """A closure over a free variable is forbidden — predicates must be self-contained."""
+    """A closure over a free variable is forbidden - predicates must be self-contained."""
     def outer():
         captured_value = 5
         return lambda x: x > captured_value

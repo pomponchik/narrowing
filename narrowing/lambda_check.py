@@ -84,7 +84,7 @@ def validate_lambda(function: object) -> None:
 
     free_names: Set[str] = set()
     # `dis.Instruction` is a NamedTuple whose fields are typed `Any` in typeshed
-    # (see `issue_typeshed.md` — upstream proposal to narrow `argval`).
+    # (see `issue_typeshed.md` - upstream proposal to narrow `argval`).
     for instruction in dis.get_instructions(code):  # type: ignore[misc]
         if instruction.opname in ('LOAD_GLOBAL', 'LOAD_NAME', 'LOAD_DEREF', 'LOAD_CLASSDEREF'):  # type: ignore[misc]
             free_names.add(str(instruction.argval))  # type: ignore[misc]
@@ -201,7 +201,7 @@ def make_string_predicate(
     })
 
     def predicate(value: object) -> object:
-        # `eval` returns Any by stub; we accept that — the caller treats the
+        # `eval` returns Any by stub; we accept that - the caller treats the
         # result as truthy/falsy.
         return eval(code, evaluation_globals, {'x': value})  # type: ignore[misc]
 

@@ -31,7 +31,7 @@ def _patched_visit_assignment_statement(self: TypeChecker, statement: Assignment
         _post_check(self, statement)
     except Exception as exception:  # noqa: BLE001
         warnings.warn(
-            f'narrowing: assignment-hook post-check raised {type(exception).__name__}: {exception} — '
+            f'narrowing: assignment-hook post-check raised {type(exception).__name__}: {exception} - '
             'literal narrowing may not work; check mypy compatibility',
             stacklevel=2,
         )
@@ -141,7 +141,7 @@ def _apply_patch() -> None:
     TypeChecker.visit_assignment_stmt = _patched_visit_assignment_statement  # type: ignore[method-assign, assignment]
     if _is_compiled_mypy():  # pragma: no cover
         warnings.warn(
-            'narrowing: mypy is mypyc-compiled — literal narrowing on assignments '
+            'narrowing: mypy is mypyc-compiled - literal narrowing on assignments '
             '(`x: PositiveInt = -5`) is not supported because direct C call sites '
             'bypass the Python-level patch. Install pure-Python mypy with '
             '`pip install --no-binary mypy mypy` for full feature support.',

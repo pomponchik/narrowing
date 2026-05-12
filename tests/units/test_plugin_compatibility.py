@@ -103,7 +103,7 @@ def test_post_check_swallows_predicate_exception_and_does_not_fail():
     source = (
         'from narrowing import Narrowed\n'
         # Predicate references attribute of int that always exists, but division
-        # throws ZeroDivisionError when called on the literal 0 — the predicate
+        # throws ZeroDivisionError when called on the literal 0 - the predicate
         # raises, which the hook should swallow.
         'BombInt = Narrowed(int, lambda x: 1 / x > 0)\n'
         'y: BombInt = 0\n'
@@ -691,7 +691,7 @@ def test_lookup_record_for_annotation_returns_record_via_alias_fullname():
 
 
 def test_maybe_emit_literal_rejection_swallows_predicate_exception():
-    """Inline-isinstance predicate that raises against a literal — no failure emitted."""
+    """Inline-isinstance predicate that raises against a literal - no failure emitted."""
     from mypy.nodes import CallExpr, IntExpr, LambdaExpr, NameExpr
 
     def bomb(_value):  # type: ignore[no-untyped-def]
@@ -723,7 +723,7 @@ def test_maybe_emit_literal_rejection_swallows_predicate_exception():
 
 
 def test_build_caller_globals_skips_flat_fullname_not_in_sys_modules():
-    """Flat (no-dot) fullname not in `sys.modules` — skipped without crash."""
+    """Flat (no-dot) fullname not in `sys.modules` - skipped without crash."""
     class _NarrowedNode:
         fullname = '__nonexistent_flat_module_unique__'
 
@@ -766,7 +766,7 @@ def test_compile_lambda_uncached_keeps_closer_candidate_against_farther_one(tmp_
 
 
 def test_build_caller_globals_continues_when_dotted_parent_lacks_attribute():
-    """Dotted fullname where parent module exists but attribute is absent — skipped silently."""
+    """Dotted fullname where parent module exists but attribute is absent - skipped silently."""
     import sys
     import types
 
@@ -835,7 +835,7 @@ def test_format_base_falls_back_to_repr_when_qualname_is_absent():
     Cross-version: on Python 3.10-3.13 `int | str` (`types.UnionType`) lacks
     `__qualname__` and exercises this fallback path organically; on 3.14
     `UnionType` gained one, so this explicit test keeps the branch covered.
-    Plain `int` literals never have `__qualname__` — they go straight to the
+    Plain `int` literals never have `__qualname__` - they go straight to the
     `repr(base)` fallback regardless of Python version.
     """
     from narrowing.narrowed import _format_base

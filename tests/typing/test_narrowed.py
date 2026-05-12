@@ -172,7 +172,7 @@ def test_inline_isinstance_call_form_via_full_path_import():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_call_form_with_any_base_falls_back():
-    """`Any` base — `_resolve_base_typeinfo` returns None, hook falls back. mypy emits the original arg-type error and value is not narrowed."""
+    """`Any` base - `_resolve_base_typeinfo` returns None, hook falls back. mypy emits the original arg-type error and value is not narrowed."""
     from typing import Any, cast
     base = cast(Any, int)
     value: object = 5
@@ -182,7 +182,7 @@ def test_inline_isinstance_call_form_with_any_base_falls_back():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_call_form_with_optional_base_falls_back():
-    """`Optional[int]` is a Union — `_resolve_base_typeinfo` returns None, fallback path; original error stays."""
+    """`Optional[int]` is a Union - `_resolve_base_typeinfo` returns None, fallback path; original error stays."""
     from typing import Optional, cast
     base = cast(Optional[int], int)
     value: object = 5
@@ -192,7 +192,7 @@ def test_inline_isinstance_call_form_with_optional_base_falls_back():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_call_form_with_generic_base_uses_fill_typevars():
-    """Generic base `list` — `fill_typevars` produces `list[Any]` for proper narrowing."""
+    """Generic base `list` - `fill_typevars` produces `list[Any]` for proper narrowing."""
     value: object = [1, 2, 3]
     if isinstance(value, Narrowed(list, lambda items: len(items) > 0)):
         reveal_type(value)  # R: builtins.list[Any]
@@ -305,7 +305,7 @@ def test_inline_isinstance_subscript_form_literal_pass():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_subscript_form_predicate_with_stdlib():
-    """Subscript predicate referencing imported stdlib module — narrowing works, no error."""
+    """Subscript predicate referencing imported stdlib module - narrowing works, no error."""
     value: object = 'hello'
     if isinstance(value, Narrowed[str, "re.match(r'.', x) is not None"]):
         reveal_type(value)  # R: builtins.str
@@ -313,7 +313,7 @@ def test_inline_isinstance_subscript_form_predicate_with_stdlib():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_call_form_predicate_raises_silent():
-    """Predicate that raises against the literal — no static error (silent skip in isinstance_hook)."""
+    """Predicate that raises against the literal - no static error (silent skip in isinstance_hook)."""
     bomb_class = Narrowed(int, lambda x: 1 / x > 0)
     with pytest.raises(ZeroDivisionError):
         isinstance(0, bomb_class)
@@ -327,7 +327,7 @@ def test_inline_isinstance_subscript_invalid_arity_still_errors():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_tuple_with_narrowed_inside():
-    """`isinstance(value, (Narrowed(int, ...), str))` — at least the regular `str` element narrows; Narrowed-element should not break."""
+    """`isinstance(value, (Narrowed(int, ...), str))` - at least the regular `str` element narrows; Narrowed-element should not break."""
     value: object = 'hello'
     if isinstance(value, (Narrowed(int, lambda x: x > 0), str)):
         reveal_type(value)  # R: Union[builtins.int, builtins.str]
@@ -335,7 +335,7 @@ def test_inline_isinstance_tuple_with_narrowed_inside():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_combined_with_and():
-    """Composition: chained `isinstance` with two `Narrowed` clauses — both narrow to int."""
+    """Composition: chained `isinstance` with two `Narrowed` clauses - both narrow to int."""
     value: object = 5
     if isinstance(value, Narrowed(int, lambda x: x > 0)) and isinstance(value, Narrowed(int, lambda x: x < 100)):
         reveal_type(value)  # R: builtins.int
@@ -351,7 +351,7 @@ def test_inline_isinstance_negation_in_else():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_with_walrus():
-    """Walrus inside isinstance — assigned variable narrows in if-block."""
+    """Walrus inside isinstance - assigned variable narrows in if-block."""
     def make_value() -> object:
         return 5
     if isinstance(value := make_value(), Narrowed[int, 'x > 0']):
@@ -360,7 +360,7 @@ def test_inline_isinstance_with_walrus():
 
 @pytest.mark.mypy_testing
 def test_issubclass_inline_call_form():
-    """`issubclass(SomeCls, Narrowed(int, ...))` — analogous to isinstance."""
+    """`issubclass(SomeCls, Narrowed(int, ...))` - analogous to isinstance."""
     class MyInt(int):
         pass
     if issubclass(MyInt, Narrowed(int, lambda x: x > 0)):
@@ -377,21 +377,21 @@ def test_inline_isinstance_combined_with_or():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_with_call_form_predicate_using_stdlib_literal_pass():
-    """Call-form lambda referencing stdlib `re` — literal-eval should resolve `re` and not crash."""
+    """Call-form lambda referencing stdlib `re` - literal-eval should resolve `re` and not crash."""
     if isinstance('a', Narrowed(str, lambda x: re.match(r'.', x) is not None)):
         pass
 
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_with_call_form_predicate_using_stdlib_literal_fail():
-    """Call-form predicate referencing stdlib `re` rejects the literal — error fires."""
+    """Call-form predicate referencing stdlib `re` rejects the literal - error fires."""
     if isinstance('', Narrowed(str, lambda x: re.match(r'.', x) is not None)):  # E: narrowing: predicate rejected literal ''
         pass
 
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_non_literal_first_argument_no_rejection():
-    """First arg is a CallExpr (not literal) — literal-rejection must not fire even when predicate would reject."""
+    """First arg is a CallExpr (not literal) - literal-rejection must not fire even when predicate would reject."""
     def make_negative() -> int:
         return -5
     if isinstance(make_negative(), Narrowed(int, lambda x: x > 0)):
@@ -400,7 +400,7 @@ def test_inline_isinstance_non_literal_first_argument_no_rejection():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_parenthesised_lambda_predicate():
-    """Lambda wrapped in parens parses identically — narrowing must still work."""
+    """Lambda wrapped in parens parses identically - narrowing must still work."""
     value: object = 5
     if isinstance(value, Narrowed(int, (lambda x: x > 0))):
         reveal_type(value)  # R: builtins.int
@@ -425,7 +425,7 @@ def test_inline_isinstance_via_builtins_module_attribute():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_subscript_form_with_nested_narrowed_base_falls_back():
-    """`Narrowed[Narrowed[int, "x>0"], "x>5"]` — outer base is an IndexExpr (not a TypeInfo),
+    """`Narrowed[Narrowed[int, "x>0"], "x>5"]` - outer base is an IndexExpr (not a TypeInfo),
     so substitution can't compute a base type and falls back to the original mypy error.
     Documents the current behavior: nested Narrowed in subscript form is a known limitation."""
     value: object = 10
