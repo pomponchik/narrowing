@@ -77,7 +77,7 @@ def test_e_form_extra_args():
 
 @pytest.mark.mypy_testing
 def test_e_form_invalid_syntax():
-    def _annotation_only(x: "Narrowed[int, 'x >']") -> None: ...  # E: narrowing: invalid predicate expression: invalid syntax  [misc]
+    def _annotation_only(x: "Narrowed[int, 'x >']") -> None: ...  # E: narrowing: invalid predicate expression  [misc]
 
 
 @pytest.mark.mypy_testing

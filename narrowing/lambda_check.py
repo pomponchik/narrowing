@@ -187,8 +187,12 @@ def make_string_predicate(
         raise TypeError('narrowing: predicate string must not be empty')
     try:
         tree = ast.parse(expression_string, mode='eval')
-    except SyntaxError as exception:
-        raise TypeError(f'narrowing: invalid predicate expression: {exception.msg}') from None
+    except SyntaxError:
+        # `SyntaxError.msg` differs between Python versions (3.9: "unexpected
+        # EOF while parsing"; 3.10+: "invalid syntax"). Drop the version-
+        # specific tail to keep the diagnostic stable; mypy already shows the
+        # offending expression at its line/column.
+        raise TypeError('narrowing: invalid predicate expression') from None
 
     check_predicate_ast(tree.body, allowed_argument='x', caller_globals=caller_globals)
 

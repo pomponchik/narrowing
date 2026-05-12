@@ -231,8 +231,10 @@ def subscript_form_type_analyze_hook(context: AnalyzeTypeContext) -> Type:
 
     try:
         tree = ast.parse(expression_string, mode='eval')
-    except SyntaxError as exception:
-        context.api.fail(f'narrowing: invalid predicate expression: {exception.msg}', context.context)
+    except SyntaxError:
+        # See `lambda_check.make_string_predicate` for why the SyntaxError
+        # message itself is intentionally dropped (version-stable diagnostic).
+        context.api.fail('narrowing: invalid predicate expression', context.context)
         return AnyType(TypeOfAny.from_error)
     try:
         check_predicate_ast(tree.body, allowed_argument='x', caller_globals={})

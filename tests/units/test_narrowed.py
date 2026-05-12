@@ -1,5 +1,6 @@
 import inspect
 import re
+import sys
 from typing import Any, List, Optional
 
 import pytest
@@ -448,6 +449,7 @@ def test_repr_for_parameterized_generic_base():
     assert 'list' in text.lower() or 'List' in text
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='PEP 604 `int | str` union syntax requires Python 3.10+')
 def test_repr_for_uniontype_base():
     """`int | str` has no `__qualname__`; the repr falls back to `repr(base)`."""
     narrowed_class = Narrowed(int | str, lambda x: True)
