@@ -832,7 +832,7 @@ def test_load_module_ast_uses_in_memory_source_without_reading_disk(tmp_path):
 def test_format_base_falls_back_to_repr_when_qualname_is_absent():
     """`_format_base` uses `repr(base)` when the value has no `__qualname__` attribute.
 
-    Cross-version: on Python 3.10–3.13 `int | str` (`types.UnionType`) lacks
+    Cross-version: on Python 3.10-3.13 `int | str` (`types.UnionType`) lacks
     `__qualname__` and exercises this fallback path organically; on 3.14
     `UnionType` gained one, so this explicit test keeps the branch covered.
     Plain `int` literals never have `__qualname__` — they go straight to the
