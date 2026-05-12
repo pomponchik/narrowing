@@ -829,6 +829,19 @@ def test_load_module_ast_uses_in_memory_source_without_reading_disk(tmp_path):
     assert parsed is not None
 
 
+def test_format_base_falls_back_to_repr_when_qualname_is_absent():
+    """`_format_base` uses `repr(base)` when the value has no `__qualname__` attribute.
+
+    Cross-version: on Python 3.10–3.13 `int | str` (`types.UnionType`) lacks
+    `__qualname__` and exercises this fallback path organically; on 3.14
+    `UnionType` gained one, so this explicit test keeps the branch covered.
+    Plain `int` literals never have `__qualname__` — they go straight to the
+    `repr(base)` fallback regardless of Python version.
+    """
+    from narrowing.narrowed import _format_base
+    assert _format_base(42) == '42'
+
+
 def test_build_narrowed_class_falls_back_when_metaclass_conflicts():
     """Base with an incompatible metaclass triggers the try/except fallback (`bases=()`)."""
     class _CustomMeta(type):

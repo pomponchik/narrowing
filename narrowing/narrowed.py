@@ -76,9 +76,12 @@ def _validate_base(target_type: object) -> None:
 class NarrowedMeta(type):
     """Metaclass for narrowed classes; wires runtime predicate and type checks."""
 
-    _narrowing_base: object
-    _narrowing_pred: Callable[[object], object]
-    _narrowing_repr_source: str
+    # PEP 649 (Python 3.14+) evaluates class-body annotations lazily, so
+    # coverage no longer marks these declaration lines as executed. They carry
+    # no runtime work — just type information for `__annotations__`.
+    _narrowing_base: object  # pragma: no cover
+    _narrowing_pred: Callable[[object], object]  # pragma: no cover
+    _narrowing_repr_source: str  # pragma: no cover
 
     def __instancecheck__(cls, instance: object) -> bool:
         # `simtypes.check` returns TypeIs[T] which mypy unwraps to bool.
