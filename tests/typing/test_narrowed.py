@@ -1,4 +1,5 @@
 import re  # noqa: F401  # used by `test_inline_isinstance_subscript_form_predicate_with_stdlib`
+import sys
 
 import pytest
 
@@ -423,11 +424,28 @@ def test_inline_isinstance_via_builtins_module_attribute():
         reveal_type(value)  # R: builtins.int
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason='Python 3.8 mypy reports a different diagnostic; see the py38 variant')
 @pytest.mark.mypy_testing
-def test_inline_isinstance_subscript_form_with_nested_narrowed_base_falls_back():
+def test_inline_isinstance_subscript_form_with_nested_narrowed_base_falls_back_py39plus():
     """`Narrowed[Narrowed[int, "x>0"], "x>5"]` - outer base is an IndexExpr (not a TypeInfo),
     so substitution can't compute a base type and falls back to the original mypy error.
-    Documents the current behavior: nested Narrowed in subscript form is a known limitation."""
+    Documents the current behavior: nested Narrowed in subscript form is a known limitation.
+
+    On Python 3.9+ the inner `Narrowed[int, 'x > 0']` resolves to a
+    `types.GenericAlias`, which `isinstance` rejects; the variable stays `object`."""
     value: object = 10
-    if isinstance(value, Narrowed[Narrowed[int, 'x > 0'], 'x > 5']):  # type: ignore[arg-type]  # E: Argument 2 to "isinstance" has incompatible type "GenericAlias"; expected "_ClassInfo"  [arg-type]
+    if isinstance(value, Narrowed[Narrowed[int, 'x > 0'], 'x > 5']):  # E: Argument 2 to "isinstance" has incompatible type "GenericAlias"; expected "_ClassInfo"  [arg-type]
         reveal_type(value)  # R: builtins.object
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 9), reason='Python 3.9+ mypy reports a different diagnostic; see the py39plus variant')
+@pytest.mark.mypy_testing
+def test_inline_isinstance_subscript_form_with_nested_narrowed_base_falls_back_py38():
+    """Python 3.8 counterpart of `..._py39plus`: same known limitation, different diagnostic.
+
+    Python 3.8's typeshed has no `types.GenericAlias`, so the inner
+    `Narrowed[int, 'x > 0']` resolves to `Type[Narrowed[Any]]`, which the outer
+    subscript cannot index; the variable falls to `Any` instead of staying `object`."""
+    value: object = 10
+    if isinstance(value, Narrowed[Narrowed[int, 'x > 0'], 'x > 5']):  # E: The type "Type[Narrowed[Any]]" is not generic and not indexable  [misc]
+        reveal_type(value)  # R: Any
