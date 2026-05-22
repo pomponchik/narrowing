@@ -13,12 +13,13 @@ from mypy.checkexpr import ExpressionChecker
 from mypy.semanal import SemanticAnalyzer
 from mypy.types import UnboundType
 
-from narrowing import assignment_hook, isinstance_hook
 from narrowing.plugin import (
     NARROWED_FULLNAME,
     NARROWED_REEXPORT,
     NarrowingPlugin,
     PredicateRecord,
+    assignment_hook,
+    isinstance_hook,
     narrowed_call_function_hook,
     plugin,
     predicate_registry,
@@ -838,7 +839,7 @@ def test_format_base_falls_back_to_repr_when_qualname_is_absent():
     Plain `int` literals never have `__qualname__` - they go straight to the
     `repr(base)` fallback regardless of Python version.
     """
-    from narrowing.narrowed import _format_base
+    from narrowing.runtime.narrowed import _format_base
     assert _format_base(42) == '42'
 
 
@@ -852,7 +853,7 @@ def test_build_narrowed_class_falls_back_when_metaclass_conflicts():
 
     # Construct narrowed class directly: this exercises the `except TypeError`
     # path that catches metaclass conflicts and retries with `bases=()`.
-    from narrowing.narrowed import _build_narrowed_class
+    from narrowing.runtime.narrowed import _build_narrowed_class
     narrowed_class = _build_narrowed_class(
         _CustomBase, lambda _value: True, '<lambda>',
     )

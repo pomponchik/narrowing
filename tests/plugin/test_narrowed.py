@@ -164,8 +164,8 @@ def test_inline_isinstance_call_form_else_branch_keeps_object():
 
 @pytest.mark.mypy_testing
 def test_inline_isinstance_call_form_via_full_path_import():
-    """Same narrowing through the full-path import (`narrowing.narrowed.Narrowed`)."""
-    from narrowing.narrowed import Narrowed as NarrowedFull
+    """Same narrowing through the full-path import (`narrowing.runtime.narrowed.Narrowed`)."""
+    from narrowing.runtime.narrowed import Narrowed as NarrowedFull
     value: object = 5
     if isinstance(value, NarrowedFull(int, lambda x: x > 0)):
         reveal_type(value)  # R: builtins.int
@@ -254,7 +254,7 @@ def test_inline_isinstance_subscript_form_narrows_to_int():
 @pytest.mark.mypy_testing
 def test_inline_isinstance_subscript_form_via_full_path_import():
     """Same with the full-path import."""
-    from narrowing.narrowed import Narrowed as NarrowedFull
+    from narrowing.runtime.narrowed import Narrowed as NarrowedFull
     value: object = 5
     if isinstance(value, NarrowedFull[int, 'x > 0']):
         reveal_type(value)  # R: builtins.int

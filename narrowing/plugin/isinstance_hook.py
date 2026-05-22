@@ -68,7 +68,7 @@ from mypy.semanal import SemanticAnalyzer
 from mypy.types import Instance, Type, TypeType
 from mypy.typevars import fill_typevars_with_any
 
-from narrowing.lambda_check import make_string_predicate
+from narrowing.common.lambda_check import make_string_predicate
 from narrowing.plugin import NARROWED_FULLNAME, NARROWED_REEXPORT
 
 _original_visit_call_expr_inner = ExpressionChecker.visit_call_expr_inner

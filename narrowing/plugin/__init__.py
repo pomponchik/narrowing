@@ -41,9 +41,9 @@ from mypy.types import (
 )
 from mypy.typevars import fill_typevars_with_any
 
-from narrowing.lambda_check import check_predicate_ast
+from narrowing.common.lambda_check import check_predicate_ast
 
-NARROWED_FULLNAME = 'narrowing.narrowed.Narrowed'
+NARROWED_FULLNAME = 'narrowing.runtime.narrowed.Narrowed'
 NARROWED_REEXPORT = 'narrowing.Narrowed'
 
 
@@ -300,8 +300,8 @@ def narrowed_call_function_hook(context: FunctionContext) -> Type:
     return TypeType(Instance(base_typeinfo, []))
 
 
-from narrowing import assignment_hook as _assignment_hook  # noqa: E402, F401, I001  # late import to break the circular dependency; importing applies the runtime patch
-from narrowing import isinstance_hook as _isinstance_hook  # noqa: E402, F401  # late import; importing applies the inline-isinstance patch
+from narrowing.plugin import assignment_hook as _assignment_hook  # noqa: E402, F401, I001  # late import to break the circular dependency; importing applies the runtime patch
+from narrowing.plugin import isinstance_hook as _isinstance_hook  # noqa: E402, F401  # late import; importing applies the inline-isinstance patch
 
 
 class NarrowingPlugin(Plugin):

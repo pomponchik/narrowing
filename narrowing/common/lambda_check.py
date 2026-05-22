@@ -18,7 +18,7 @@ from typing import Callable, Dict, FrozenSet, List, Mapping, Set, Tuple
 
 from denial import InnerNone
 
-from narrowing.stdlib_names import STDLIB_MODULE_NAMES
+from narrowing.common.stdlib_names import STDLIB_MODULE_NAMES
 
 BUILTINS_ALLOWLIST: FrozenSet[str] = frozenset({
     'len', 'bool', 'int', 'float', 'str', 'bytes', 'tuple', 'list', 'dict',

@@ -31,7 +31,7 @@ from getsources import getclearsource
 from printo import superrepr
 from simtypes import check
 
-from narrowing.lambda_check import make_string_predicate, validate_lambda
+from narrowing.common.lambda_check import make_string_predicate, validate_lambda
 
 
 def _is_subclassable(type_object: type) -> bool:

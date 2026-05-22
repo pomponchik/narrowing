@@ -1,1 +1,1 @@
-from narrowing.narrowed import Narrowed as Narrowed
+from narrowing.runtime.narrowed import Narrowed as Narrowed
